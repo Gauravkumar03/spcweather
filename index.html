@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Data Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        h1 {
+            color: #333;
+        }
+        select, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+        }
+        select {
+            background: #ddd;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Weather Data Viewer</h1>
+        
+        <!-- Location Dropdown -->
+        <label for="location">Select Location:</label>
+        <select id="location">
+            <option value="pipavav">Pipavav</option>
+            <option value="mundra">Mundra</option>
+            <option value="mahuva">Mahuva</option>
+            <option value="junagadh">Junagadh</option>
+            <option value="rajkot">Rajkot</option>
+            <option value="talaja">Talaja</option>
+            <option value="rajula">Rajula</option>
+            <option value="keshod">Keshod</option>
+            <option value="gondal">Gondal</option>
+            <option value="lunsapur">Lunsapur</option>
+        </select>
+
+        <!-- Date Dropdown -->
+        <label for="date">Select Date:</label>
+        <select id="date"></select>
+
+        <button id="generate">Get Weather</button>
+
+        <div id="weatherData"></div>
+    </div>
+
+    <script>
+        const locations = {
+            pipavav: { lat: 20.9072, lon: 71.4997 },
+            mundra: { lat: 22.8392, lon: 69.7219 },
+            mahuva: { lat: 21.0915, lon: 71.7714 },
+            junagadh: { lat: 21.5174, lon: 70.4579 },
+            rajkot: { lat: 22.3039, lon: 70.8022 },
+            talaja: { lat: 21.3523, lon: 71.4483 },
+            rajula: { lat: 21.0455, lon: 71.4333 },
+            keshod: { lat: 21.3016, lon: 70.2486 },
+            gondal: { lat: 21.9611, lon: 70.7923 },
+            lunsapur: { lat: 20.9566, lon: 71.4671 }
+        };
+
+        // Populate the date dropdown with past 15 days in "4 February 2025" format
+        const dateDropdown = document.getElementById('date');
+        const dateMap = {}; // Map to store formatted dates for API calls
+        for (let i = 1; i <= 15; i++) {
+            let dateISO = getISODate(i);
+            let dateFormatted = formatDate(dateISO);
+
+            let option = document.createElement('option');
+            option.value = dateISO; // Store API-friendly ISO date
+            option.textContent = dateFormatted;
+
+            dateDropdown.appendChild(option);
+            dateMap[dateISO] = dateFormatted; // Store mapping for display
+        }
+
+        document.getElementById('generate').addEventListener('click', async () => {
+            const location = document.getElementById('location').value;
+            const selectedDateISO = document.getElementById('date').value; // Correctly get selected ISO date
+            const selectedFormattedDate = dateMap[selectedDateISO]; // Get human-readable format
+            const { lat, lon } = locations[location];
+
+            if (!selectedDateISO) {
+                alert("Please select a valid date.");
+                return;
+            }
+
+            const weatherDataDiv = document.getElementById('weatherData');
+            weatherDataDiv.innerHTML = '<p>Fetching weather data...</p>';
+
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${selectedDateISO}&end_date=${selectedDateISO}&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max&timezone=Asia/Kolkata`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const data = await response.json();
+
+                let weatherHTML = `
+                    <h3>Weather for ${location.charAt(0).toUpperCase() + location.slice(1)} on ${selectedFormattedDate}</h3>
+                    <table>
+                        <tr>
+                            <th>Date</th>
+                            <th>Min Temp (°C)</th>
+                            <th>Max Temp (°C)</th>
+                            <th>Humidity (%)</th>
+                        </tr>
+                        <tr>
+                            <td>${selectedFormattedDate}</td>
+                            <td>${data.daily.temperature_2m_min[0]}°C</td>
+                            <td>${data.daily.temperature_2m_max[0]}°C</td>
+                            <td>${data.daily.relative_humidity_2m_max[0]}%</td>
+                        </tr>
+                    </table>`;
+
+                weatherDataDiv.innerHTML = weatherHTML;
+            } catch (error) {
+                console.error(error);
+                weatherDataDiv.innerHTML = `<p style="color:red;">Failed to fetch weather data.</p>`;
+            }
+        });
+
+        // Get past date in ISO format (YYYY-MM-DD) for API calls
+        function getISODate(daysAgo) {
+            const date = new Date();
+            date.setDate(date.getDate() - daysAgo);
+            return date.toISOString().split('T')[0];
+        }
+
+        // Convert date from ISO format to "4 February 2025" format
+        function formatDate(dateISO) {
+            const date = new Date(dateISO);
+            const options = { day: 'numeric', month: 'long', year: 'numeric' };
+            return date.toLocaleDateString('en-GB', options);
+        }
+    </script>
+
+</body>
+</html>
+
+
+
+
+
+
