@@ -12,7 +12,7 @@
             margin: 20px;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: auto;
             background: white;
             padding: 20px;
@@ -48,6 +48,7 @@
         th, td {
             padding: 10px;
             border-bottom: 1px solid #ddd;
+            text-align: center;
         }
         th {
             background: #007bff;
@@ -101,56 +102,59 @@
             lunsapur: { lat: 20.9566, lon: 71.4671 }
         };
 
-        // Populate the date dropdown with past 15 days in "4 February 2025" format
+        // Populate the date dropdown with the last 15 days and today
         const dateDropdown = document.getElementById('date');
         const dateMap = {}; // Map to store formatted dates for API calls
-        for (let i = 1; i <= 15; i++) {
+        for (let i = 0; i <= 15; i++) {
             let dateISO = getISODate(i);
             let dateFormatted = formatDate(dateISO);
 
             let option = document.createElement('option');
-            option.value = dateISO; // Store API-friendly ISO date
-            option.textContent = dateFormatted;
+            option.value = dateISO; // Store ISO format for API
+            option.textContent = dateFormatted; // Display readable format
 
             dateDropdown.appendChild(option);
-            dateMap[dateISO] = dateFormatted; // Store mapping for display
+            dateMap[dateFormatted] = dateISO; // Store mapping for display
         }
 
         document.getElementById('generate').addEventListener('click', async () => {
             const location = document.getElementById('location').value;
-            const selectedDateISO = document.getElementById('date').value; // Correctly get selected ISO date
-            const selectedFormattedDate = dateMap[selectedDateISO]; // Get human-readable format
+            const selectedFormattedDate = document.getElementById('date').selectedOptions[0].textContent; // Correct way to fetch the selected text
+            const selectedDateISO = dateMap[selectedFormattedDate]; // Get ISO date for API request
             const { lat, lon } = locations[location];
-
-            if (!selectedDateISO) {
-                alert("Please select a valid date.");
-                return;
-            }
 
             const weatherDataDiv = document.getElementById('weatherData');
             weatherDataDiv.innerHTML = '<p>Fetching weather data...</p>';
 
-            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${selectedDateISO}&end_date=${selectedDateISO}&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max&timezone=Asia/Kolkata`;
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${selectedDateISO}&end_date=${selectedDateISO}&hourly=relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Kolkata`;
 
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`API Error: ${response.status}`);
                 const data = await response.json();
 
+                // Extract hourly humidity values
+                const hourlyHumidity = data.hourly.relative_humidity_2m;
+                const dailyTempMax = data.daily.temperature_2m_max[0];
+                const dailyTempMin = data.daily.temperature_2m_min[0];
+                
+                // Calculate average humidity for the selected day
+                const avgHumidity = hourlyHumidity.reduce((sum, value) => sum + value, 0) / hourlyHumidity.length;
+
                 let weatherHTML = `
                     <h3>Weather for ${location.charAt(0).toUpperCase() + location.slice(1)} on ${selectedFormattedDate}</h3>
                     <table>
                         <tr>
                             <th>Date</th>
-                            <th>Min Temp (°C)</th>
-                            <th>Max Temp (°C)</th>
-                            <th>Humidity (%)</th>
+                            <th>Average Humidity (%)</th>
+                            <th>Min Temperature (°C)</th>
+                            <th>Max Temperature (°C)</th>
                         </tr>
                         <tr>
                             <td>${selectedFormattedDate}</td>
-                            <td>${data.daily.temperature_2m_min[0]}°C</td>
-                            <td>${data.daily.temperature_2m_max[0]}°C</td>
-                            <td>${data.daily.relative_humidity_2m_max[0]}%</td>
+                            <td>${avgHumidity.toFixed(2)}%</td>
+                            <td>${dailyTempMin}°C</td>
+                            <td>${dailyTempMax}°C</td>
                         </tr>
                     </table>`;
 
@@ -178,6 +182,13 @@
 
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 
